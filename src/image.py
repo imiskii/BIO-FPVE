@@ -1,97 +1,112 @@
-#
-# @file: image.py
-# @description: Image and ImageSet classes for easier work with images
-# @date: 01.10.2024
-#
+"""
+@file: image.py
+@brief: Image classes for easier work with images
+@author: Michal Ľaš (xlasmi00)
+@date: 01.10.2024
+"""
 
+from typing import Any, Self, NewType
 import cv2 as cv
 import numpy as np
 
+
+ImageSet = NewType("ImageSet", None)
 
 class Image:
     """
     Class representing an image.
     """
 
-    def __init__(self, image_data: np.ndarray, name:str="Untitled image") -> None:
-        self.data:np.ndarray = image_data
+    IMG_GRAYSCLACE:int = 0
+    IMG_COLOR:int = 1
+
+    def __init__(self, image_data: np.ndarray, color:int, name:str="Untitled_image") -> None:
+        """
+        Image constructor.
+
+        `image_data`: data
+        `color`: color base of image - ` IMG_GRAYSCLACE`/`IMG_COLOR`
+        `name`: name of the image
+        """
+        self._data:np.ndarray = image_data
+        self._color:int = color
         self.name:str = name
 
+
+    def GetData(self) -> np.ndarray:
+        return self._data
+    
+
+    def GetColor(self) -> int:
+        return self._color
 
 
     def GetSize(self) -> tuple[int, int]:
         """
         Return height and width of the image.
         """
-        height, width, _ = self.data.shape
+        if self._color == self.IMG_GRAYSCLACE:
+            height, width = self._data.shape
+        else:
+            height, width, _ = self._data.shape
         return height, width
 
+
+    def Resize(self, new_width, new_height) -> None:
+        """Change the image size."""
+        self._data = cv.resize(self._data, (new_width, new_height))
+
+
+    def Crop(self, x, y, width, height):
+        """Crop the image on selected values."""
+        self._data = self._data[y:y+height, x:x+width]
+
+
+    def GaussianBlur(self, kernel_size:tuple[int]=(5,5), sigmaX:int=0) -> Self:
+        """
+        Apply GaussianBlur on the image.
+
+        `kernel_size`: size of Gausian blur kernel (matrix size)
+        `sigmaX`: amount of used filter
+        
+        Return new image with applied filter.
+        """
+        return Image(cv.GaussianBlur(self._data, kernel_size, 0), f"{self.name}_GaussBlur")
+    
+
+    def GaussianPyramid(self, depth:int) -> ImageSet:
+        """
+        Create Gaussian Pyramid of this image.
+        
+        `depth`: number of Gaussian Pyramid levels
+        """
+        from pyramids import gaussian_pyramid
+        return gaussian_pyramid(self, depth, f"{self.name}_GaussPyr")
+
+
+    def LaplacianPyramid(self, depth:int) -> ImageSet:
+        """
+        Create Laplacian Pyramid of this image.
+
+        `depth`: number of Laplacian Pyramid levels
+        """
+        from pyramids import laplacian_pyramid
+        return laplacian_pyramid(self.GaussianPyramid(depth), f"{self.name}_LaplacPyr")
+    
+
+    def DetailPyramid(self, depth:int) -> list[Self]:
+        """
+        Create Detail Pyramid of this image.
+
+        `depth`: number of Detail Pyramid levels
+        """
+        from pyramids import detail_pyramid
+        return detail_pyramid(self.GaussianPyramid(depth), f"{self.name}_DetailPyr")
 
 
     def Show(self) -> None:
         """
         Display image in separate window. Window can be closed by pressing any key.
         """
-        cv.imshow(self.name, self.data)
-        cv.waitKey(0)
-
-
-
-class ImageSet:
-    """
-    Ordered set of Image objects. Default order is by brightness.
-    """
-
-    def __init__(self, image_list:list[Image], set_name:str="Untitled image set") -> None:
-        self.images:list[Image] = image_list
-        self.SortByBrightness()
-        self.image_count = len(self.images)
-        self.name:str = set_name
-
-
-    def SortByBrightness(self) -> None:
-        """
-        Sort images by their brightness level in ascending order.
-        """
-        self.images.sort(key=lambda img: np.mean(img.data), reverse=True)
-
-
-    def Show(self, max_window_width:int=1600) -> None:
-        """
-        Display set of images in separate window. Window can be closed by pressing any key.
-        Parameters:
-            `max_window_width`: the maximum width of window with images
-        """
-
-        if not self.images:
-            print(f"Image set {self.name} is empty. There is nothing to show.")
-            return
-        
-        # Find maximal width and height of images
-        heights = [image.data.shape[0] for image in self.images]
-        widths = [image.data.shape[1] for image in self.images]
-
-        max_height = max(heights)
-        max_width = max(widths)
-
-        # Count number of rows
-        num_rows = 1
-        while sum(widths[:(self.image_count // num_rows)]) > max_window_width:
-            num_rows += 1
-        images_per_row = (self.image_count + num_rows - 1) // num_rows
-
-        # Create empty canvas
-        stacked_image = np.zeros((max_height * num_rows, max_width * images_per_row, 3), dtype=np.uint8)
-
-        # Fill canvas
-        for idx, img in enumerate(self.images):
-            row = idx // images_per_row
-            col = idx % images_per_row
-
-            y_offset = row * max_height
-            x_offset = col * max_width
-
-            stacked_image[y_offset:y_offset + img.data.shape[0], x_offset:x_offset + img.data.shape[1]] = img.data
-
-        cv.imshow(self.name, stacked_image)
+        cv.imshow(self.name, self._data)
         cv.waitKey(0)
