@@ -34,6 +34,14 @@ class Image:
         self.name:str = name
 
 
+    def _add__(self, other:Self) -> Self:
+        return Image(cv.add(self._data, other.GetData()), self._color, f"{self.name}_add_{other.name}")
+
+
+    def __sub__(self, other:Self) -> Self:
+        return Image(cv.subtract(self._data, other.GetData()), self._color, f"{self.name}_add_{other.name}")
+    
+
     def GetData(self) -> np.ndarray:
         return self._data
     

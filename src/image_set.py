@@ -156,7 +156,7 @@ class ImageSet:
             # Dynamically place the image based on its actual size
             resized_image = cv.resize(img.GetData(), (img_width, img_height)) # DO NOT USE img.Resize(), it needs to be a copy.
             if img.GetColor() == Image.IMG_GRAYSCLACE:
-                stacked_image[y_offset:y_offset + img_height, x_offset:x_offset + img_width] = cv.cvtColor(resized_image, cv.COLOR_GRAY2BGR)
+                stacked_image[y_offset:y_offset + img_height, x_offset:x_offset + img_width] = cv.cvtColor(resized_image, cv.COLOR_GRAY2RGB)
             else:
                 stacked_image[y_offset:y_offset + img_height, x_offset:x_offset + img_width] = resized_image
                 
