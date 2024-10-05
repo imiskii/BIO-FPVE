@@ -79,7 +79,7 @@ class Image:
         
         Return new image with applied filter.
         """
-        self._data = cv.GaussianBlur(self._data, kernel_size, 0)
+        self._data = cv.GaussianBlur(self._data, kernel_size, sigmaX)
     
 
     def GaussianPyramid(self, depth:int) -> ImageSet:
