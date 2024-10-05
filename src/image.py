@@ -6,6 +6,7 @@
 """
 
 from typing import Any, Self, NewType
+from copy import deepcopy
 import cv2 as cv
 import numpy as np
 
@@ -52,6 +53,13 @@ class Image:
         return height, width
 
 
+    def Copy(self) -> Self:
+        """
+        Creates and returns a deep copy of the current Image object.
+        """
+        return deepcopy(self)
+
+
     def Resize(self, new_width, new_height) -> None:
         """Change the image size."""
         self._data = cv.resize(self._data, (new_width, new_height))
@@ -62,7 +70,7 @@ class Image:
         self._data = self._data[y:y+height, x:x+width]
 
 
-    def GaussianBlur(self, kernel_size:tuple[int]=(5,5), sigmaX:int=0) -> Self:
+    def GaussianBlur(self, kernel_size:tuple[int]=(5,5), sigmaX:int=0) -> None:
         """
         Apply GaussianBlur on the image.
 
@@ -71,7 +79,7 @@ class Image:
         
         Return new image with applied filter.
         """
-        return Image(cv.GaussianBlur(self._data, kernel_size, 0), f"{self.name}_GaussBlur")
+        self._data = cv.GaussianBlur(self._data, kernel_size, 0)
     
 
     def GaussianPyramid(self, depth:int) -> ImageSet:

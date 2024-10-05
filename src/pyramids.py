@@ -35,13 +35,14 @@ def laplacian_pyramid(gaussian_pyramid:ImageSet, new_set_name:str="Laplacian_Pyr
     return lapla_pyramid 
 
 
-def detail_pyramid(gaussian_pyramid:ImageSet, new_set_name:str="Detail_Pyramid") -> list[Image]:
+def detail_pyramid(gaussian_pyramid:ImageSet, new_set_name:str="Detail_Pyramid") -> ImageSet:
     """
     Count Detail Pyramid from given `gaussian_pyramid`.
     """
     detail_pyramid = ImageSet([], new_set_name)
     for i, image in enumerate(gaussian_pyramid):
-        blurred = image.GaussianBlur()
+        blurred = image.Copy()
+        blurred.GaussianBlur()
         detail = cv.subtract(image.GetData(), blurred.GetData())
         detail_pyramid.Append(Image(detail, image.GetColor(), f"{new_set_name}-{i}"))
     return detail_pyramid
