@@ -18,7 +18,7 @@ def gaussian_pyramid(image:Image, depth:int, new_set_name:str="Gaussian_Pyramid"
     img = image.GetData().copy()
     for i in range(depth):
         img = cv.pyrDown(img)
-        gauss_pyramid.Append(Image(img, image.GetColor(), f"{new_set_name}-{i}"))
+        gauss_pyramid.Append(Image(img, f"{new_set_name}-{i}"))
     return gauss_pyramid
 
 
@@ -31,7 +31,7 @@ def laplacian_pyramid(gaussian_pyramid:ImageSet, new_set_name:str="Laplacian_Pyr
         size = gaussian_pyramid[i-1].GetSize() # Calculation of final size!
         gauss_up_one = cv.pyrUp(gaussian_pyramid[i].GetData(), dstsize=(size[1], size[0])) # the size have to be used because of sequence pyrDown and pyrUp on odd heights/widths does not create image of original size
         lapla = cv.subtract(gaussian_pyramid[i-1].GetData(), gauss_up_one)
-        lapla_pyramid.Append(Image(lapla, gaussian_pyramid[i-1].GetColor(), f"{new_set_name}-{i}"))
+        lapla_pyramid.Append(Image(lapla, f"{new_set_name}-{i}"))
     return lapla_pyramid 
 
 

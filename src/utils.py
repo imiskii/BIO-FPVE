@@ -12,7 +12,10 @@ from image import Image
 from image_set import ImageSet
 
 
-def load_image_grayscale(image_path:str) -> Image:
+SUPPORTED_EXTENSIONS = ['.png', '.jpg', '.jpeg']
+
+
+def load_image(image_path:str) -> Image:
     """
     Load one image and make it greyscale. Return Image object.
 
@@ -20,29 +23,19 @@ def load_image_grayscale(image_path:str) -> Image:
     
     >>> image:Image = load_image("merged_vein.png")
     """
-    img = cv.imread(cv.samples.findFile(image_path), cv.IMREAD_GRAYSCALE)
+    file = splitext(image_path)
+    if file[1] not in SUPPORTED_EXTENSIONS:
+        raise Exception(f"File {file[0]} has unsupported extension {file[1]}!")
+
+    img = cv.imread(cv.samples.findFile(image_path), cv.IMREAD_UNCHANGED)
     if img is None:
-        raise Exception(f"Could not read the image: {image_path}")
-
-    return Image(img, Image.IMG_GRAYSCLACE, image_path.rpartition('/')[-1])
-
-
-def load_image_color(image_path:str):
-    """
-    Load one image in its color. Return Image object.
-
-    `image_path`: absolute/relative path to the image
+        raise FileNotFoundError(f"Could not read the image: {image_path}")
     
-    >>> image:Image = load_image("merged_vein.png")
-    """
-    img = cv.imread(cv.samples.findFile(image_path))
-    if img is None:
-        raise Exception(f"Could not read the image: {image_path}")
-
-    return Image(img, Image.IMG_COLOR, image_path.rpartition('/')[-1])
+    return Image(img, image_path.rpartition('/')[-1])
 
 
-def load_image_set(image_paths_list:str, images_color:str= 'GRAYSCALE') -> ImageSet:
+
+def load_image_set(image_paths:list|str) -> ImageSet:
     """
     Load set of images from given directory. It treats all files in specified directory as images! Returns ImageSet object.
 
@@ -52,15 +45,12 @@ def load_image_set(image_paths_list:str, images_color:str= 'GRAYSCALE') -> Image
     >>> imgs = load_image_set(['data/example_splited/column-1.png', 'data/example_splited/column-2.png', 'data/example_splited/column-3.png'])
     >>> imgs = load_image_set(find_images_in_directory("data/example_splited/"))
     """
-
-    match images_color:
-        case 'GRAYSCALE':
-            return ImageSet([load_image_grayscale(image) for image in image_paths_list])
-        case 'COLOR':
-            return ImageSet([load_image_color(image) for image in image_paths_list])
-        case _:
-            raise Exception(f"Unknow images_color argument in function load_image_set: {images_color}")
-
+    if type(image_paths) is list:
+        return ImageSet([load_image(image) for image in image_paths])
+    elif type(image_paths) is str:
+        return ImageSet([load_image(image) for image in find_images_in_directory(image_paths)])
+    else:
+        raise TypeError(f"load_image_set: parameter image_paths is neither list or string. It is {type(image_paths)} type.")
 
 
 
@@ -72,7 +62,7 @@ def find_images_in_directory(directory:str) -> list[str]:
     result = []
     for file in listdir(directory):
         path = join(directory, file)
-        if isfile(path) and splitext(path)[1] in ['.png', '.jpg', '.jpeg']:
+        if isfile(path) and splitext(path)[1] in SUPPORTED_EXTENSIONS:
             result.append(path)
     return result
 

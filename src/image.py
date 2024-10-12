@@ -6,6 +6,7 @@
 """
 
 from typing import Any, Self, NewType
+from functools import wraps
 from copy import deepcopy
 import cv2 as cv
 import numpy as np
@@ -18,19 +19,15 @@ class Image:
     Class representing an image.
     """
 
-    IMG_GRAYSCLACE:int = 0
-    IMG_COLOR:int = 1
-
-    def __init__(self, image_data: np.ndarray, color:int, name:str="Untitled_image") -> None:
+    def __init__(self, image_data: np.ndarray, name:str="Untitled_image") -> None:
         """
         Image constructor.
 
         `image_data`: data
-        `color`: color base of image - ` IMG_GRAYSCLACE`/`IMG_COLOR`
         `name`: name of the image
         """
         self._data:np.ndarray = image_data
-        self._color:int = color
+        self._color:int = cv.IMREAD_GRAYSCALE if len(image_data.shape) < 3 else cv.IMREAD_COLOR
         self.name:str = name
 
 
@@ -40,6 +37,26 @@ class Image:
 
     def __sub__(self, other:Self) -> Self:
         return Image(cv.subtract(self._data, other.GetData()), self._color, f"{self.name}_add_{other.name}")
+
+
+    def apply_on_copy(method):
+        """
+        Wrapper for methods that modify Image object. This wraper alows them to create a deep copy and apply the method
+        on the copy insted of original object. The method has to have specified parameter inplace=False to create a deepcopy.
+        Inplace is set to True by default.
+        """
+        @wraps(method)
+        def wrapper(self, *args, inplace:bool=True, **kwargs) -> Self:
+            # Modify current image
+            if inplace:
+                method(self, *args, **kwargs)
+                return self
+            else:
+                # Create a deep copy and apply the method to the copy
+                new_img = deepcopy(self)
+                method(new_img, *args, **kwargs)
+                return new_img
+        return wrapper
     
 
     def GetData(self) -> np.ndarray:
@@ -54,11 +71,25 @@ class Image:
         """
         Return height and width of the image.
         """
-        if self._color == self.IMG_GRAYSCLACE:
-            height, width = self._data.shape
+        return self._data.shape[0], self._data.shape[1]
+    
+
+    def GetBitDepth(self) -> np.dtypes:
+        return self._data.dtype
+
+
+    def IsGrayscale(self) -> bool:
+        if self._color == cv.IMREAD_GRAYSCALE:
+            return True
         else:
-            height, width, _ = self._data.shape
-        return height, width
+            return False
+
+
+    @apply_on_copy
+    def ConvertToGrayscale(self) -> Self:
+        if self._color != cv.IMREAD_GRAYSCALE:
+            self._data = cv.cvtColor(self._data, cv.COLOR_BGR2GRAY)
+            self._color = cv.IMREAD_GRAYSCALE
 
 
     def Copy(self) -> Self:
@@ -68,17 +99,26 @@ class Image:
         return deepcopy(self)
 
 
-    def Resize(self, new_width, new_height) -> None:
+    @apply_on_copy
+    def Resize(self, new_width, new_height) -> Self:
         """Change the image size."""
         self._data = cv.resize(self._data, (new_width, new_height))
 
 
-    def Crop(self, x, y, width, height):
+    @apply_on_copy
+    def Scale(self, scale_factor:float) -> Self:
+        height, width = self.GetSize()
+        self._data = cv.resize(self._data, (int(height * scale_factor), int(width * scale_factor)))
+
+
+    @apply_on_copy
+    def Crop(self, x, y, width, height) -> Self:
         """Crop the image on selected values."""
         self._data = self._data[y:y+height, x:x+width]
 
 
-    def GaussianBlur(self, kernel_size:tuple[int]=(5,5), sigmaX:int=0) -> None:
+    @apply_on_copy
+    def GaussianBlur(self, kernel_size:tuple[int]=(5,5), sigmaX:int=0) -> Self:
         """
         Apply GaussianBlur on the image.
 
