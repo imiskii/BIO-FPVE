@@ -227,13 +227,3 @@ class ImageSet:
         resize_and_display_image()
         fig.canvas.toolbar.update()
         plt.show()
-
-
-
-
-class SlideShow:
-
-    def __init__(self, images:list) -> None:
-        self._images = images
-        self._image_count = len(images)
-        self._current_index = 0
