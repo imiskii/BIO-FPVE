@@ -309,10 +309,28 @@ class Image:
     # Wavelet Transform
 
     def WaveletTransform(self, mode:str='haar') -> list[Self]:
-        imgs = ["LH", "HL", "HH"]
+        """
+        Applies a 2D discrete wavelet transform (DWT) to the image data, decomposing it into
+        four components: LL (approximation), LH (horizontal detail), HL (vertical detail), and HH (diagonal detail).
+        The LL component is normalized for better visualization due to high intensity in 16-bit images.
+
+        mode (str): The type of wavelet to use. Common options include:
+            - 'haar': Simple, non-smooth wavelet (default).
+            - 'dbN': Daubechies wavelets (e.g., 'db1' is equivalent to 'haar', 'db2', 'db3', etc.).
+            - 'symN': Symlets, symmetric versions of Daubechies (e.g., 'sym2', 'sym3', etc.).
+            - 'coifN': Coiflets, more symmetric with more vanishing moments (e.g., 'coif1', 'coif2', etc.).
+            - 'biorN.N': Biorthogonal wavelets for symmetric, reversible transforms (e.g., 'bior1.3', 'bior2.2').
+            - 'dmey': Discrete Meyer wavelet with good frequency localization.
+        """
+        imgs = ["LL", "LH", "HL", "HH"]
         LL, (LH, HL, HH) = pywt.dwt2(self._data, mode)
+
+        # Normalize LL to 8-bit range (0-255)
+        if self.GetBitDepth() == np.uint16:
+            LL_normalized = 255 * (LL - np.min(LL)) / (np.max(LL) - np.min(LL))
+
         wavelet_result = []
-        for nm, coe in zip(imgs, [LL, LH, HL, HH]):
+        for nm, coe in zip(imgs, [LL_normalized, LH, HL, HH]):
             wavelet_result.append(Image(coe, f"{self.name}_Wavelet_{nm}"))
         return wavelet_result
     
