@@ -14,19 +14,16 @@ from image import Image
 
 class ImageSet:
     """
-    Set of Image objects. Uniques of Image objects is assured by image names.
+    Set of Image objects.
     """
 
     def __init__(self, image_list:list[Image], set_name:str="Untitled_image_set") -> None:
-        self._image_names:set[str] = set()
-        self._images:list[Image] = list()
-        for image in image_list:
-            if image.name not in self._image_names:
-                self._image_names.add(image.name)
-                self._images.append(image)
-
+        self._images:list[Image] = image_list
         self._image_count = len(self._images)
         self.name:str = set_name
+
+    
+    # Methods overloading
 
 
     def __getitem__(self, key:int) -> Image:
@@ -37,29 +34,51 @@ class ImageSet:
         return self._image_count
 
 
+    # Common
+
+
     def Append(self, image:Image) -> None:
         """
         Append image to the set. This may break the set ordering!
         """
-        if image.name not in self._image_names:
-            self._image_names.add(image.name)
-            self._images.append(image)
-            self._image_count += 1
+        self._images.append(image)
+        self._image_count += 1
 
 
-    def Remove(self, index:int) -> None:
+    def Pop(self, index:int) -> Image:
         """
         Remove image on position `key` from the set. If the position is indexed out of the set do nothing.
         """
         if 0 <= index < len(self._images):
-            self._images.pop(index)
+            return self._images.pop(index)
         else:
-            raise IndexError(f"function: ImageSet.Remove(): index {index} is out of image set!")
+            raise IndexError(f"function: ImageSet.Pop(): index {index} is out of image set!")
+        
+
+    def Remove(self, image_name:str) -> None:
+        """
+        Remove all images with given name from the ImageSet.
+        """
+        self._images = [img for img in self._images if img.name != image_name]
+
+
+    # Image operations
+
+
+    def Sum(self) -> Image:
+        return Image(np.sum([img for img in self._images], axis=0), f"{self.name}_sum")
 
 
     def ConvertAllToGrayscale(self) -> None:
         for image in self._images:
             image.ConvertToGrayscale()
+
+
+    def LaplacianPyramid(self) -> Self:
+        from pyramids import laplacian_pyramid
+        return laplacian_pyramid(self, f"{self.name}_LaplacPyr")
+
+    # Sorters
 
 
     def SortByBrightness(self, reverse:bool=True) -> None:
@@ -76,9 +95,7 @@ class ImageSet:
         self._images.sort(key=lambda img: img.GetSize()[1], reverse=reverse)
 
 
-    def LaplacianPyramid(self) -> Self:
-        from pyramids import laplacian_pyramid
-        return laplacian_pyramid(self, f"{self.name}_LaplacPyr")
+    # Special
 
 
     def Show(self, max_window_width: int = 1600, max_window_height: int = 800) -> None:
