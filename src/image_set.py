@@ -66,7 +66,7 @@ class ImageSet:
 
 
     def Sum(self) -> Image:
-        return Image(np.sum([img for img in self._images], axis=0), f"{self.name}_sum")
+        return Image(np.sum([img.GetData() for img in self._images], axis=0), f"{self.name}_sum")
 
 
     def ConvertAllToGrayscale(self) -> None:
