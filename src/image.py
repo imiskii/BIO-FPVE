@@ -12,6 +12,7 @@ import cv2 as cv
 import numpy as np
 import pywt
 from skimage.filters import gabor_kernel
+from skimage.restoration import denoise_wavelet
 from scipy.ndimage import convolve
 from histogram_eq_16bit import histogram_equalization_16_bit
 
@@ -354,6 +355,39 @@ class Image:
             self._data = histogram_equalization_16_bit(self._data)
         else:
             self._data = cv.equalizeHist(self._data)
+
+
+    @apply_on_copy
+    def CLAHE_HistogramEqualization(self, max_clip:float=80.0, min_clip:float=2.0, tileSize:tuple=(8,8)) -> Self:
+        """
+        Contrast Limited Adaptive Histogram Equalization with adaptive clip limit.
+
+        `max_clip`: Maximal threshold for contrast limiting.
+        `min_clip`: Minimal threshold for contrast limiting.
+        `tileSize`: Size of grid for histogram equalization. Input image will be divided into equally sized rectangular tiles. tileGridSize defines the number of tiles in row and column.
+        """
+        brightness = np.mean(self._data) / 65535  # Scale brightness to range [0, 1]
+        clip_limit = max(min_clip, min(max_clip, max_clip * (1 - brightness)))
+        clahe = cv.createCLAHE(clipLimit=clip_limit, tileGridSize=tileSize)
+        self._data = clahe.apply(self._data)
+
+    
+    @apply_on_copy
+    def WaveletDenoise(self, channel_axis:None|int=None) -> Self:
+        """
+        Apply wavelet denoise. Required normalization to [0, 1] and conversion back to 16-bit! 
+
+        `multichannel`: If None, the image is assumed to be grayscale (single-channel). Otherwise, this parameter indicates which axis of the array corresponds to channels.
+        """
+        # Normalize the image to [0, 1] range for denoising
+        image_float = self._data / 65535.0
+
+        # The method='BayesShrink' parameter automatically adapts the amount of denoising based on the noise level, preserving details.
+        # mode='soft' applies soft thresholding, which generally works well for smooth but noisy images.
+        denoised_float = denoise_wavelet(image_float, method='BayesShrink', mode='hard', channel_axis=channel_axis, rescale_sigma=True)
+
+        self._data = (denoised_float * 65535).astype(np.uint16)
+
 
 
     # Pyramids

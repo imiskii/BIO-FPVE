@@ -196,7 +196,7 @@ class ImageSet:
         cv.waitKey(0)
 
 
-    def SlideShow(self, max_window_width: int = 1600, max_window_height: int = 800) -> None:
+    def SlideShow(self) -> None:
         """
         Display images (Grayscale only!) from the ImageSet as a slideshow.
         """
@@ -204,24 +204,16 @@ class ImageSet:
             print(f"Image set {self.name} is empty. There is nothing to show.")
             return
 
-        # Copy and scale images
-        images = self._images.copy()
-        for image in images:
-            img_height, img_width = image.GetSize()
-            if img_height > max_window_height or img_width > max_window_width:
-                scale_factor = min(max_window_height / img_height, max_window_width / img_width)
-                image.Scale(scale_factor)
-
         # Initialize current image index
         self.__current_index = 0
 
         # Create a figure for the slideshow
         fig, ax = plt.subplots()
-        plt.subplots_adjust(bottom=0.2)
+        plt.tight_layout()
 
         # Method to update the image in the slideshow
         def resize_and_display_image():
-            image = images[self.__current_index]
+            image = self._images[self.__current_index]
             depth = 65536 if image.GetBitDepth() == np.uint16 else 255
             # Display the image
             ax.clear()
