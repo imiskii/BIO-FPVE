@@ -214,10 +214,9 @@ class ImageSet:
         # Method to update the image in the slideshow
         def resize_and_display_image():
             image = self._images[self.__current_index]
-            depth = 65536 if image.GetBitDepth() == np.uint16 else 255
             # Display the image
             ax.clear()
-            ax.imshow(image.GetData(), cmap='gray', vmin=0, vmax=depth)
+            ax.imshow(image.GetData(), cmap='gray')
             ax.set_title(f"{image.name} ({self.__current_index + 1}/{self._image_count})")
             plt.draw()
 

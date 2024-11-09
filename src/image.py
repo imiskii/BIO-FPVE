@@ -208,6 +208,11 @@ class Image:
     # Filters
 
     @apply_on_copy
+    def ApplyFilter(self, kernel:np.ndarray) -> Self:
+        self._data = cv.filter2D(self._data, -1, kernel)
+
+
+    @apply_on_copy
     def GaussianBlur(self, kernel_size:tuple[int]=(5,5), sigmaX:int=0) -> Self:
         """
         Apply GaussianBlur on the image.
@@ -340,7 +345,12 @@ class Image:
 
     @apply_on_copy
     def Normalize(self) -> Self:
-        self._data = cv.normalize(self._data, None, 0, 65535, norm_type=cv.NORM_MINMAX)
+        self._data = cv.normalize(self._data, None, 0, 1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+
+
+    @apply_on_copy
+    def ScaleBack(self, to_val=65535, dtype=cv.CV_16U) -> Self:
+        self._data = cv.normalize(self._data, None, 0, to_val, norm_type=cv.NORM_MINMAX, dtype=dtype)
 
 
     @apply_on_copy
@@ -366,7 +376,7 @@ class Image:
         `min_clip`: Minimal threshold for contrast limiting.
         `tileSize`: Size of grid for histogram equalization. Input image will be divided into equally sized rectangular tiles. tileGridSize defines the number of tiles in row and column.
         """
-        brightness = np.mean(self._data) / 65535  # Scale brightness to range [0, 1]
+        brightness = np.mean(self._data)# / 65535  # Scale brightness to range [0, 1]
         clip_limit = max(min_clip, min(max_clip, max_clip * (1 - brightness)))
         clahe = cv.createCLAHE(clipLimit=clip_limit, tileGridSize=tileSize)
         self._data = clahe.apply(self._data)
@@ -375,18 +385,15 @@ class Image:
     @apply_on_copy
     def WaveletDenoise(self, channel_axis:None|int=None) -> Self:
         """
-        Apply wavelet denoise. Required normalization to [0, 1] and conversion back to 16-bit! 
+        Apply wavelet denoise. Required normalization to [0, 1] 
 
         `multichannel`: If None, the image is assumed to be grayscale (single-channel). Otherwise, this parameter indicates which axis of the array corresponds to channels.
-        """
-        # Normalize the image to [0, 1] range for denoising
-        image_float = self._data / 65535.0
 
+        Return: normalized image [0,1]
+        """
         # The method='BayesShrink' parameter automatically adapts the amount of denoising based on the noise level, preserving details.
         # mode='soft' applies soft thresholding, which generally works well for smooth but noisy images.
-        denoised_float = denoise_wavelet(image_float, method='BayesShrink', mode='hard', channel_axis=channel_axis, rescale_sigma=True)
-
-        self._data = (denoised_float * 65535).astype(np.uint16)
+        self._data = denoise_wavelet(self._data, method='BayesShrink', mode='hard', channel_axis=channel_axis, rescale_sigma=True)
 
 
 
