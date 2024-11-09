@@ -1,7 +1,7 @@
 """
 @file: image_set.py
 @brief: ImageSet classe for easier work with set of images
-@author: Michal Ľaš (xlasmi00)
+@author: Michal Ľaš (xlasmi00), Tomáš Bártů (xbartu11)
 @date: 01.10.2024
 """
 
@@ -22,7 +22,7 @@ class ImageSet:
         self._image_count = len(self._images)
         self.name:str = set_name
 
-    
+
     # Methods overloading
 
 
@@ -53,7 +53,7 @@ class ImageSet:
             return self._images.pop(index)
         else:
             raise IndexError(f"function: ImageSet.Pop(): index {index} is out of image set!")
-        
+
 
     def Remove(self, image_name:str) -> None:
         """
@@ -77,6 +77,20 @@ class ImageSet:
     def LaplacianPyramid(self) -> Self:
         from pyramids import laplacian_pyramid
         return laplacian_pyramid(self, f"{self.name}_LaplacPyr")
+
+    # Fusion
+    def WaveletFusion(self, wavelet: str = 'db1', level: int = None, combine_method: str = 'mean') -> Image:
+        from fusion import wavelet_fusion
+        return wavelet_fusion(self, wavelet, level, combine_method)
+
+    def AverageFusion(self) -> Image:
+        from fusion import average_fusion
+        return average_fusion(self)
+
+    def LaplacianFusion(self, max_level: int = 5) -> Image:
+        from fusion import laplacian_pyramid_fusion
+        return laplacian_pyramid_fusion(self, max_level)
+
 
     # Sorters
 
@@ -134,7 +148,7 @@ class ImageSet:
                 width = int(width * scale)
                 height = int(height * scale)
                 img.Scale(scale)
-            
+
             heights.append(height)
             widths.append(width)
             # Create image matrix
