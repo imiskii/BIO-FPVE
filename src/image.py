@@ -1,7 +1,7 @@
 """
 @file: image.py
 @brief: Image classes for easier work with images
-@author: Michal Ľaš (xlasmi00)
+@author: Michal Ľaš (xlasmi00), Tomáš Bártů (xbartu11)
 @date: 01.10.2024
 """
 
@@ -127,9 +127,22 @@ class Image:
         """
         Display image in separate window. Window can be closed by pressing any key.
         """
+        cv.namedWindow(self.name, cv.WINDOW_NORMAL)
         cv.imshow(self.name, self._data)
         cv.waitKey(0)
+        cv.destroyAllWindows()
 
+    def Save(self, file_path: str) -> None:
+        """
+        Save the image to the specified file path.
+
+        `file_path`: The path (including filename and extension) where the image will be saved.
+        """
+        success = cv.imwrite(file_path, self._data)
+        if success:
+            print(f"Image successfully saved to {file_path}")
+        else:
+            print(f"Failed to save image to {file_path}")
 
     ############################################################
     ##################### IMAGE OPERATIONS #####################
@@ -305,6 +318,7 @@ class Image:
                 filtered_images.append(filtered_img)
         combined_image = np.sum([img for img in filtered_images], axis=0)
         self._data = combined_image / combined_image.max()
+        self._data = cv.normalize(self._data, None, 0, 65535, cv.NORM_MINMAX).astype(np.uint16)
 
 
     # Wavelet Transform
