@@ -44,5 +44,6 @@ def detail_pyramid(gaussian_pyramid:ImageSet, new_set_name:str="Detail_Pyramid")
         blurred = image.Copy()
         blurred.GaussianBlur()
         detail = image - blurred
+        detail.name = f"{new_set_name}-{i}"
         detail_pyramid.Append(detail)
     return detail_pyramid

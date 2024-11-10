@@ -77,11 +77,11 @@ class Image:
 
 
     def _add__(self, other:Self) -> Self:
-        return Image(cv.add(self._data, other.GetData()), self._color, f"{self.name}_add_{other.name}")
+        return Image(cv.add(self._data, other.GetData()), self.name)
 
 
     def __sub__(self, other:Self) -> Self:
-        return Image(cv.subtract(self._data, other.GetData()), self._color, f"{self.name}_add_{other.name}")
+        return Image(cv.subtract(self._data, other.GetData()), self.name)
     
 
     # Getters
@@ -115,6 +115,12 @@ class Image:
 
     # Special
 
+    @apply_on_copy
+    def ApplyMask(self, mask:Self) -> Self:
+        masked_image = np.zeros_like(self._data)
+        masked_image[mask.GetData() == 1] = self._data[mask.GetData() == 1]
+        self._data = masked_image
+        
 
     def Copy(self) -> Self:
         """
@@ -131,6 +137,7 @@ class Image:
         cv.imshow(self.name, self._data)
         cv.waitKey(0)
         cv.destroyAllWindows()
+
 
     def Save(self, file_path: str) -> None:
         """
@@ -216,6 +223,26 @@ class Image:
         """
         kernel = get_kernel(kernel_shape, kernel_size, self.GetBitDepth())
         self._data = cv.morphologyEx(self._data, cv.MORPH_CLOSE, kernel, iterations=iterations)
+
+
+    @apply_on_copy
+    def BlackHat(self, kernel_shape:str="rectangular", kernel_size:int=3, iterations:int=1) -> Self:
+        """
+        Applies Black Hat filter to the image.
+        `kernel_size`: Size of the kernel used for the operations.
+        """
+        kernel = get_kernel(kernel_shape, kernel_size, self.GetBitDepth())
+        self._data = cv.morphologyEx(self._data, cv.MORPH_BLACKHAT, kernel, iterations=iterations)
+
+
+    @apply_on_copy
+    def TopHat(self, kernel_shape:str="rectangular", kernel_size:int=3, iterations:int=1) -> Self:
+        """
+        Applies Black Hat filter to the image.
+        `kernel_size`: Size of the kernel used for the operations.
+        """
+        kernel = get_kernel(kernel_shape, kernel_size, self.GetBitDepth())
+        self._data = cv.morphologyEx(self._data, cv.MORPH_TOPHAT, kernel, iterations=iterations)
 
 
     # Filters
@@ -355,6 +382,54 @@ class Image:
         return wavelet_result
     
 
+    # Threshold
+
+    @apply_on_copy
+    def ThresholdToZero(self, thresh:float, maxval:float) -> Self:
+        _, self._data = cv.threshold(self._data, thresh, maxval, cv.THRESH_TOZERO)
+
+
+    @apply_on_copy
+    def ThresholdBinary(self, thresh:float, maxval:float) -> Self:
+        _, self._data = cv.threshold(self._data, thresh, maxval, cv.THRESH_BINARY)
+
+
+    def IntensityBoost(self, tileSize:int, boost:int, tolerance:int, global_mean:float, gm_deviation:float=0.2) -> Self:
+        # Determine type
+        if self.GetBitDepth() == np.uint16:
+            type_bits = 65535
+        elif self.GetBitDepth() == np.uint8:
+            type_bits = 255
+        else:
+            raise ValueError("IntensityBoost() method supports only UINT16 and UINT8 types")
+
+        height, width = self.GetSize()
+        for y in range(0, height, tileSize):
+            for x in range(0, width, tileSize):
+                # Calculate the height and width of the tile
+                tile_height = min(tileSize, height - y)
+                tile_width = min(tileSize, width - x)
+                # Extract the tile
+                tile = self._data[y:y + tile_height, x:x + tile_width]
+                tile_mean = tile.mean()
+                if tile_mean > global_mean and tile_mean > global_mean * (1.0 + gm_deviation): # too bright mean, always boost up
+                    intensity_ratio = 0
+                elif tile_mean < global_mean and tile_mean < global_mean * (1.0 - gm_deviation): # too dark mean, always boost down
+                    intensity_ratio = type_bits
+                else:
+                    intensity_ratio = tile_mean
+                # Boost intensity
+                for y_t in range(0, tile_height):
+                    for x_t in range(0, tile_width):
+                        pixel_value = int(tile[y_t, x_t])
+                        if pixel_value > intensity_ratio and pixel_value - tolerance > intensity_ratio:
+                            tile[y_t, x_t] = np.clip(pixel_value + boost, 0, type_bits)
+                        elif pixel_value < intensity_ratio and pixel_value + tolerance < intensity_ratio:
+                            tile[y_t, x_t] = np.clip(pixel_value - boost, 0, type_bits)
+                self._data[y:y + tile_height, x:x + tile_width] = tile
+                
+
+
     # Histogram Equalization
 
     @apply_on_copy
@@ -382,7 +457,7 @@ class Image:
 
 
     @apply_on_copy
-    def CLAHE_HistogramEqualization(self, max_clip:float=80.0, min_clip:float=2.0, tileSize:tuple=(8,8)) -> Self:
+    def CLAHE_HistogramEqualization(self, max_clip:float, min_clip:float, mask:None|Self=None, mask_only:bool=True, tileSize:tuple=(8,8)) -> Self:
         """
         Contrast Limited Adaptive Histogram Equalization with adaptive clip limit.
 
@@ -390,12 +465,30 @@ class Image:
         `min_clip`: Minimal threshold for contrast limiting.
         `tileSize`: Size of grid for histogram equalization. Input image will be divided into equally sized rectangular tiles. tileGridSize defines the number of tiles in row and column.
         """
-        brightness = np.mean(self._data)# / 65535  # Scale brightness to range [0, 1]
+        # Determine the brightness scaling factor
+        if np.max(self._data) <= 1.0:  # For normalized or floating-point data
+            scale_factor = 1
+        elif self.GetBitDepth() == np.uint16:
+            scale_factor = 65535
+        elif self.GetBitDepth() == np.uint8:
+            scale_factor = 255
+
+        # Scale brightness to range [0, 1]
+        if mask is None:
+            brightness = np.mean(self._data) / scale_factor
+        else:
+            brightness = np.mean(self._data[mask.GetData() == 1]) / scale_factor
+
         clip_limit = max(min_clip, min(max_clip, max_clip * (1 - brightness)))
         clahe = cv.createCLAHE(clipLimit=clip_limit, tileGridSize=tileSize)
-        self._data = clahe.apply(self._data)
 
-    
+        if mask is not None and mask_only:
+            eq_pixels = clahe.apply(self._data[mask.GetData() == 1]).flatten()
+            self._data[mask.GetData() == 1] = eq_pixels
+        else:
+            self._data = clahe.apply(self._data)
+            
+
     @apply_on_copy
     def WaveletDenoise(self, channel_axis:None|int=None) -> Self:
         """
@@ -434,7 +527,7 @@ class Image:
         return laplacian_pyramid(self.GaussianPyramid(depth), f"{self.name}_LaplacPyr")
     
 
-    def DetailPyramid(self, depth:int) -> list[Self]:
+    def DetailPyramid(self, depth:int) -> ImageSet:
         """
         Create Detail Pyramid of this image.
 
