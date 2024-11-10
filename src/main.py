@@ -5,6 +5,7 @@
 @date: 10.11.2024
 """
 
+import argparse
 from utils import load_image_set, load_image
 from image import Image
 from image_set import ImageSet
@@ -12,6 +13,19 @@ from fusion import exposure_fusion, average_fusion, laplacian_pyramid_fusion, pc
 from cv2 import CV_8U
 
 
+FUSION_METHODS:list[str] = ['wavelet', 'exposure', 'average', 'laplacian', 'pca']
+
+
+def argument_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Finger Vein Enhancer")
+
+    parser.add_argument("ifolder", nargs=1, type=str, help="Path to the folder with images.")
+    parser.add_argument("methods", nargs='+', type=str, choices=FUSION_METHODS + ['all'], help="Select fusion method.") # TODO: write possible methods (include 'all')
+    parser.add_argument("--save", required=False, nargs=1, type=str, default=None, help="Path to the folder where results will be saved.")
+    parser.add_argument("--mask", required=False, nargs=1, type=str, default=None, help="Path to the mask image.")
+    parser.add_argument("--proc_mask", required=False, action="store_true", default=False, help="Bool flag to preprocess mask before using it.")
+
+    return parser
 
 
 def fusion(image_set: ImageSet, method: str = 'wavelet', **kwargs) -> Image:
@@ -43,15 +57,15 @@ def preprocessing(image_set:ImageSet, mask:None|Image=None) -> ImageSet:
         img.GaussianBlur((5,5))
         img.Dilate(kernel_size=3, kernel_shape='eliptical', iterations=3)
         img.Opening(kernel_size=3, kernel_shape='eliptical', iterations=3)
-        img.CLAHE_HistogramEqualization(80, 40, mask, tileSize=(20,20))
-        img.ApplyMask(mask)
+        img.CLAHE_HistogramEqualization(80, 40, mask, True, tileSize=(20,20))
+        if mask is not None:
+            img.ApplyMask(mask)
         
     
     # Filter too bright or too dark images
-    mask_mean = img.GetData()[mask.GetData() == 1].mean()
     filtered_set = [img for img in image_set if (img.GetData().max() * 0.2) < img.GetData()[mask.GetData() == 1].mean() < (img.GetData().max() * 0.8)]
     
-    return image_set
+    return ImageSet(filtered_set, "Input_images_preprocessed")
 
 
 
@@ -70,27 +84,52 @@ def process_mask(raw_mask:Image) -> Image:
 
 def main():
 
+    # Parse arguments
+    parser = argument_parser()
+    args = parser.parse_args()
+
+    folder_path = args.ifolder[0]
+    mask_image_path = args.mask[0]
+    selected_fusion_methods = args.methods if args.methods[0] != "all" else FUSION_METHODS
+    proc_mask = args.proc_mask
+    save_folder = args.save
+
+    print(f"""Start processing...
+Folder path: {folder_path}
+Selected methods: {selected_fusion_methods}
+Mask path: {mask_image_path}
+Mask processing: {proc_mask}
+Save folder: {save_folder}\n""")
+
+    if save_folder is not None:
+        save_folder = save_folder[0]
+        if save_folder[-1] != "/":
+            save_folder += "/"
+
+
     # Load mask (and process)
-    mask_image_path = '../samples/nir01_5.0_0.png'
-    mask_image = load_image(mask_image_path)
-    mask:Image = process_mask(mask_image)
+    mask_image = None
+    if mask_image_path is not None:
+        mask_image = load_image(mask_image_path)
+        mask_image.name = f"mask"
+        if proc_mask:
+            mask:Image = process_mask(mask_image)
 
     # Load images
-    folder_path = '../samples/for-testing/002-r-1'
-    image_set = load_image_set(folder_path)
+    image_set:ImageSet = load_image_set(folder_path)
 
     # Preprocessing
-    image_set = preprocessing(image_set, mask)
+    image_set:ImageSet = preprocessing(image_set, mask)
 
     # Fusion
     results = ImageSet([], "Final results")
-    fusion_types = ['wavelet', 'exposure', 'average', 'laplacian', 'pca']
 
-    for fusion_type in fusion_types:
+    for fusion_type in selected_fusion_methods:
         fused_image = fusion(image_set, method=fusion_type)
         fused_image.name = f'{fusion_type}'
         results.Append(fused_image)
-        fused_image.Save(f'../img/{fused_image.name}.png')
+        if save_folder is not None:
+            fused_image.Save(f'{save_folder}{fused_image.name}.png')
 
 
     results.SlideShow()
