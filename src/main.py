@@ -20,7 +20,7 @@ def argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Finger Vein Enhancer")
 
     parser.add_argument("ifolder", nargs=1, type=str, help="Path to the folder with images.")
-    parser.add_argument("methods", nargs='+', type=str, choices=FUSION_METHODS + ['all'], help="Select fusion method.") # TODO: write possible methods (include 'all')
+    parser.add_argument("methods", nargs='+', type=str, choices=FUSION_METHODS + ['all'], help="Select fusion method.")
     parser.add_argument("--save", required=False, nargs=1, type=str, default=None, help="Path to the folder where results will be saved.")
     parser.add_argument("--mask", required=False, nargs=1, type=str, default=None, help="Path to the mask image.")
     parser.add_argument("--proc_mask", required=False, action="store_true", default=False, help="Bool flag to preprocess mask before using it.")
@@ -63,7 +63,10 @@ def preprocessing(image_set:ImageSet, mask:None|Image=None) -> ImageSet:
         
     
     # Filter too bright or too dark images
-    filtered_set = [img for img in image_set if (img.GetData().max() * 0.2) < img.GetData()[mask.GetData() == 1].mean() < (img.GetData().max() * 0.8)]
+    if mask is not None:
+        filtered_set = [img for img in image_set if (img.GetData().max() * 0.2) < img.GetData()[mask.GetData() == 1].mean() < (img.GetData().max() * 0.8)]
+    else:
+        filtered_set = [img for img in image_set if (img.GetData().max() * 0.2) < img.GetData().mean() < (img.GetData().max() * 0.8)]
     
     return ImageSet(filtered_set, "Input_images_preprocessed")
 
@@ -89,10 +92,17 @@ def main():
     args = parser.parse_args()
 
     folder_path = args.ifolder[0]
-    mask_image_path = args.mask[0]
+    mask_image_path = args.mask[0] if args.mask is not None else None
     selected_fusion_methods = args.methods if args.methods[0] != "all" else FUSION_METHODS
     proc_mask = args.proc_mask
     save_folder = args.save
+
+
+    if save_folder is not None:
+        save_folder = save_folder[0]
+        if save_folder[-1] != "/":
+            save_folder += "/"
+
 
     print(f"""Start processing...
 Folder path: {folder_path}
@@ -100,11 +110,6 @@ Selected methods: {selected_fusion_methods}
 Mask path: {mask_image_path}
 Mask processing: {proc_mask}
 Save folder: {save_folder}\n""")
-
-    if save_folder is not None:
-        save_folder = save_folder[0]
-        if save_folder[-1] != "/":
-            save_folder += "/"
 
 
     # Load mask (and process)
@@ -114,6 +119,8 @@ Save folder: {save_folder}\n""")
         mask_image.name = f"mask"
         if proc_mask:
             mask:Image = process_mask(mask_image)
+    else:
+        mask = None
 
     # Load images
     image_set:ImageSet = load_image_set(folder_path)
