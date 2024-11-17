@@ -25,6 +25,9 @@ class ImageSet:
 
     # Methods overloading
 
+    def __setitem__(self, key:int, value:Image):
+        self._images[key] = value
+
 
     def __getitem__(self, key:int) -> Image:
         return self._images[key]

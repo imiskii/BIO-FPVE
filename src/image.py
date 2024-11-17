@@ -76,12 +76,20 @@ class Image:
     # Methods overloading
 
 
-    def _add__(self, other:Self) -> Self:
+    def __add__(self, other:Self) -> Self:
         return Image(cv.add(self._data, other.GetData()), self.name)
 
 
     def __sub__(self, other:Self) -> Self:
         return Image(cv.subtract(self._data, other.GetData()), self.name)
+    
+
+    def __mul__(self, other:Self) -> Self:
+        return Image(cv.multiply(self._data, other.GetData()), self.name)
+    
+
+    def __truediv__(self, other:Self) -> Self:
+        return Image(cv.divide(self._data, other.GetData()), self.name)
     
 
     # Getters
@@ -443,26 +451,35 @@ class Image:
 
 
     @apply_on_copy
-    def HistogramEqualization(self) -> Self:
+    def HistogramEqualization(self, mask:None|Self=None) -> Self:
         """
         Applies histogram equalization to enhance the contrast of the image. Only on grayscale images!
+
+        `mask`: Applies changes only on area represented by the mask.
         """
         if self._color != cv.IMREAD_GRAYSCALE:
             raise ValueError("Image.HistogramEqualization() the given image is not grayscale!")
         
         if self.GetBitDepth() == np.uint16:
-            self._data = histogram_equalization_16_bit(self._data)
+            if mask is not None:
+                self._data[mask.GetData() == 1] = histogram_equalization_16_bit(self._data[mask.GetData() == 1]).flatten()
+            else:
+                self._data = histogram_equalization_16_bit(self._data)
         else:
-            self._data = cv.equalizeHist(self._data)
+            if mask is not None:
+                self._data[mask.GetData() == 1] = cv.equalizeHist(self._data[mask.GetData() == 1]).flatten()
+            else:
+                self._data = cv.equalizeHist(self._data)
 
 
     @apply_on_copy
-    def CLAHE_HistogramEqualization(self, max_clip:float, min_clip:float, mask:None|Self=None, mask_only:bool=True, tileSize:tuple=(8,8)) -> Self:
+    def CLAHE_HistogramEqualization(self, max_clip:float, min_clip:float, mask:None|Self=None, tileSize:tuple=(8,8)) -> Self:
         """
         Contrast Limited Adaptive Histogram Equalization with adaptive clip limit.
 
         `max_clip`: Maximal threshold for contrast limiting.
         `min_clip`: Minimal threshold for contrast limiting.
+        `mask`: Calculate clip_limit just with values represented by the mask.
         `tileSize`: Size of grid for histogram equalization. Input image will be divided into equally sized rectangular tiles. tileGridSize defines the number of tiles in row and column.
         """
         # Determine the brightness scaling factor
@@ -481,12 +498,7 @@ class Image:
 
         clip_limit = max(min_clip, min(max_clip, max_clip * (1 - brightness)))
         clahe = cv.createCLAHE(clipLimit=clip_limit, tileGridSize=tileSize)
-
-        if mask is not None and mask_only:
-            eq_pixels = clahe.apply(self._data[mask.GetData() == 1]).flatten()
-            self._data[mask.GetData() == 1] = eq_pixels
-        else:
-            self._data = clahe.apply(self._data)
+        self._data = clahe.apply(self._data)
             
 
     @apply_on_copy
