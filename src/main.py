@@ -171,8 +171,7 @@ Save folder: {save_folder}\n""")
 
             # Show result and save images
             if save_folder is not None:
-                for image in result:
-                    image.Save(f'{save_folder}{fused_image.name}.png')
+                fused_image.Save(f'{save_folder}{fused_image.name}.png')
     
         result.SlideShow()
     else:

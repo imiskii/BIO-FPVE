@@ -3,7 +3,6 @@ This code was sourced from https://stackoverflow.com/questions/70442513/why-does
 It is implementation of histogram equalization for 16-bit images inspired by OpenCV documentation: https://docs.opencv.org/4.x/d5/daf/tutorial_py_histogram_equalization.html
 """
 
-import cv2 as cv
 import numpy as np
 
 def histogram_equalization_16_bit(image:np.ndarray) -> np.ndarray:
