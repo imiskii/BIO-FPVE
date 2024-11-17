@@ -1,6 +1,6 @@
 """
 @file: hdr.py
-@brief: ...
+@brief: Improved High Dynamic Range (HDR) image processing
 @author: Michal Ľaš (xlasmi00)
 @date: 05.10.2024
 """
@@ -14,10 +14,32 @@ import cv2 as cv
 
 
 def calc_contrast(gauss_layer_0:Image, detail_layer_0:Image) -> np.ndarray:
+    """
+    Calculates the contrast map based on Gaussian and detail layers.
+
+    Parameters:
+        `gauss_layer_0` (Image): The base Gaussian layer of the image.
+        `detail_layer_0` (Image): The corresponding detail layer of the image.
+
+    Returns:
+        np.ndarray: The contrast map as a numpy array.
+    """
     return np.abs(detail_layer_0.GetData() / (gauss_layer_0.GaussianBlur().GetData() + 1e-5))
 
 
 def calc_well_exposedness(image:Image, image_data_mean:float, sigma_g=0.5, sigma_l=0.2) -> np.ndarray:
+    """
+    Calculates the well-exposedness map for an image using a global and local Gaussian distribution.
+
+    Parameters:
+        `image` (Image): Input image.
+        `image_data_mean` (float): Mean value of the image data.
+        `sigma_g` (float, optional): Global exposure standard deviation. Default is 0.5.
+        `sigma_l` (float, optional): Local exposure standard deviation. Default is 0.2.
+
+    Returns:
+        np.ndarray: The well-exposedness map as a numpy array.
+    """
     image_data = cv.normalize(image.GetData(), None, 0, 1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
     global_wex = -(((image_data_mean - 0.5) ** 2) / (2 * sigma_g ** 2))
     
@@ -30,11 +52,36 @@ def calc_well_exposedness(image:Image, image_data_mean:float, sigma_g=0.5, sigma
 
 
 def calc_brightness(image:Image, image_data_mean:float) -> np.ndarray:
+    """
+    Computes the brightness weight map for an image.
+
+    Parameters:
+        `image` (Image): Input image.
+        `image_data_mean` (float): Mean value of the image data.
+
+    Returns:
+        np.ndarray: The brightness weight map as a numpy array.
+    """
     brightness_weight = image.GetData() / image_data_mean
     return brightness_weight / brightness_weight.max()
 
 
 def compute_weight_map(image:Image, gauss_layer_0:Image, detail_layer_0:Image, image_data_mean:float, alpha:int=1, beta:int=1, gamma:int=1) -> np.ndarray:
+    """
+    Computes the combined weight map based on contrast, well-exposedness, and brightness maps.
+
+    Parameters:
+        `image` (Image): Input image.
+        `gauss_layer_0` (Image): The base Gaussian layer.
+        `detail_layer_0` (Image): The corresponding detail layer.
+        `image_data_mean` (float): Mean value of the image data.
+        `alpha` (int, optional): Weight exponent for contrast. Default is 1.
+        `beta` (int, optional): Weight exponent for well-exposedness. Default is 1.
+        `gamma` (int, optional): Weight exponent for brightness. Default is 1.
+
+    Returns:
+        np.ndarray: The combined weight map.
+    """
     contrast = calc_contrast(gauss_layer_0, detail_layer_0)
     well_exposedness = calc_well_exposedness(image, image_data_mean)
     brightness = calc_brightness(image, image_data_mean)
@@ -44,6 +91,15 @@ def compute_weight_map(image:Image, gauss_layer_0:Image, detail_layer_0:Image, i
 
 
 def weight_maps_sum(weight_maps:list[np.ndarray]) -> float:
+    """
+    Computes the sum of multiple weight maps.
+
+    Parameters:
+        `weight_maps` (list[np.ndarray]): List of weight maps.
+
+    Returns:
+        float: The sum of weight maps.
+    """
     weight_map_sum = weight_maps[0]
     for w_map in weight_maps[1:]:
         weight_map_sum += w_map
@@ -52,6 +108,15 @@ def weight_maps_sum(weight_maps:list[np.ndarray]) -> float:
 
 
 def normalize_weight_maps(weight_maps:list[np.ndarray]) -> list[Image]:
+    """
+    Normalizes a list of weight maps by their sum.
+
+    Parameters:
+        `weight_maps` (list[np.ndarray]): List of weight maps.
+
+    Returns:
+        list[Image]: List of normalized weight maps as Image objects.
+    """
     weight_map_sum = weight_maps_sum(weight_maps)
     result = []
     for w_map in weight_maps:
@@ -59,7 +124,18 @@ def normalize_weight_maps(weight_maps:list[np.ndarray]) -> list[Image]:
     return result
 
 
-def weight_pyrimid_update(weight_pyramid:ImageSet, laplacian_pyramid:ImageSet, alpha:float=0.2) -> ImageSet:    
+def weight_pyrimid_update(weight_pyramid:ImageSet, laplacian_pyramid:ImageSet, alpha:float=0.2) -> ImageSet:
+    """
+    Updates the weight pyramid using the laplacian pyramid and a scaling factor.
+
+    Parameters:
+        `weight_pyramid` (ImageSet): The weight pyramid.
+        `laplacian_pyramid` (ImageSet): The laplacian pyramid.
+        `alpha` (float, optional): Scaling factor for update. Default is 0.2.
+
+    Returns:
+        ImageSet: The updated weight pyramid.
+    """
     for i in range(len(weight_pyramid) - 3, len(weight_pyramid)):
         update = weight_pyramid[i].GetData() + (alpha * np.abs(laplacian_pyramid[i].GetData()))
         weight_pyramid[i] = Image(update)
@@ -67,6 +143,15 @@ def weight_pyrimid_update(weight_pyramid:ImageSet, laplacian_pyramid:ImageSet, a
 
 
 def weight_fusion(weight_pyramid:list[ImageSet]) -> ImageSet:
+    """
+    Fuses multiple weight pyramids into a single pyramid.
+
+    Parameters:
+        `weight_pyramid` (list[ImageSet]): List of weight pyramids.
+
+    Returns:
+        ImageSet: The fused weight pyramid.
+    """
     weight_sum = ImageSet([])
     for level in range(len(weight_pyramid[0])):
         level_sum:Image = weight_pyramid[0][level]
@@ -77,6 +162,17 @@ def weight_fusion(weight_pyramid:list[ImageSet]) -> ImageSet:
 
 
 def fuse_pyramids(pyramid:list[ImageSet], weight_pyramid:list[ImageSet], fused_weights:ImageSet) -> ImageSet:
+    """
+    Fuses multiple pyramids using their respective weight pyramids.
+
+    Parameters:
+        `pyramid` (list[ImageSet]): List of image pyramids.
+        `weight_pyramid` (list[ImageSet]): List of weight pyramids.
+        `fused_weights` (ImageSet): Fused weight pyramid.
+
+    Returns:
+        ImageSet: The fused image pyramid.
+    """
     pyr_sum = ImageSet([])
     for level in range(len(pyramid[0])):
         level_sum:Image = pyramid[0][level] * weight_pyramid[0][level]
@@ -87,6 +183,17 @@ def fuse_pyramids(pyramid:list[ImageSet], weight_pyramid:list[ImageSet], fused_w
 
 
 def laplacian_detail_compensation(fused_laplacian:ImageSet, fused_detail:ImageSet, beta:float=0.1) -> ImageSet:
+    """
+    Compensates for details in the laplacian pyramid fusion.
+
+    Parameters:
+        `fused_laplacian` (ImageSet): Fused laplacian pyramid.
+        `fused_detail` (ImageSet): Fused detail pyramid.
+        `beta` (float, optional): Compensation factor. Default is 0.1.
+
+    Returns:
+        ImageSet: The compensated laplacian pyramid.
+    """
     result = ImageSet([])
     for lapla, detail in zip(fused_laplacian, fused_detail):
         result.Append(Image(lapla.GetData() + beta * detail.GetData()))
@@ -94,6 +201,16 @@ def laplacian_detail_compensation(fused_laplacian:ImageSet, fused_detail:ImageSe
 
 
 def make_hdr_pyramid(final_laplacian:ImageSet, laplacian_pyramid:ImageSet) -> ImageSet:
+    """
+    Constructs an HDR pyramid by upscaling and blending laplacian pyramids.
+
+    Parameters:
+        `final_laplacian` (ImageSet): Final compensated laplacian pyramid.
+        `laplacian_pyramid` (ImageSet): Initial laplacian pyramid.
+
+    Returns:
+        ImageSet: The HDR pyramid.
+    """
     hdr_pyramid = ImageSet([])
     for f_lapla, lapla in zip(final_laplacian[1:], laplacian_pyramid[:-1]):
         size = lapla.GetSize()
@@ -104,7 +221,17 @@ def make_hdr_pyramid(final_laplacian:ImageSet, laplacian_pyramid:ImageSet) -> Im
 
 
 def improved_hdr(images:ImageSet, depth:int, mask:None|Image=None) -> ImageSet:
+    """
+    Implements the HDR imaging pipeline including weight computation, pyramid fusion, and detail enhancement.
 
+    Parameters:
+        `images` (ImageSet): Set of input images.
+        `depth` (int): Depth of the pyramids.
+        `mask` (None | Image, optional): Mask for selecting regions. Default is None.
+
+    Returns:
+        ImageSet: The final HDR image pyramid.
+    """
     images_data = {}
 
     for img in images:
@@ -153,3 +280,4 @@ def improved_hdr(images:ImageSet, depth:int, mask:None|Image=None) -> ImageSet:
     return hdr_pyramid
 
 
+# END OF FILE
