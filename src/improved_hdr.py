@@ -1,8 +1,22 @@
 """
-@file: hdr.py
+@file: improved_hdr.py
 @brief: Improved High Dynamic Range (HDR) image processing
 @author: Michal Ľaš (xlasmi00)
 @date: 05.10.2024
+
+
+This algorithm was inspired by the article https://www.sciencedirect.com/science/article/pii/S1350449521000700:
+
+@author: Hang Gao and Qian Chen and Chengwei Liu and Guohua Gu
+@title: High dynamic range infrared image acquisition based on an improved multi-exposure fusion algorithm
+@journal: Infrared Physics & Technology
+@volume: 115
+@pages: 103698
+@year: 2021
+@issn: 1350-4495
+@doi: https://doi.org/10.1016/j.infrared.2021.103698
+
+
 """
 
 from image import Image
